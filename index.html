@@ -149,6 +149,9 @@
             margin-right: 15px;
             position: relative;
             flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .selected .radio-circle { border-color: var(--gold); }
@@ -160,6 +163,44 @@
             width: 10px; height: 10px;
             background-color: var(--gold);
             border-radius: 50%;
+        }
+
+        /* Novos estilos para vencedores e categorias bloqueadas */
+        .nominee-card.winner {
+            border-color: var(--gold);
+            background-color: rgba(212, 175, 55, 0.2);
+            cursor: default;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+        }
+
+        .winner-icon {
+            font-size: 1.2rem;
+            margin-right: 15px;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .nominee-card.disabled {
+            opacity: 0.5;
+            cursor: default;
+            filter: grayscale(100%);
+        }
+
+        .nominee-card.wrong-bet {
+            border-color: #ff4c4c;
+            background-color: rgba(255, 76, 76, 0.1);
+        }
+
+        .nominee-card.correct-bet {
+            border-color: #4caf50;
+            background-color: rgba(76, 175, 80, 0.2);
+        }
+
+        .error-circle {
+            border-color: transparent;
+            color: #ff4c4c;
+            font-size: 0.8rem;
         }
 
         .btn-finish {
@@ -174,6 +215,19 @@
             cursor: pointer;
             font-size: 1rem;
         }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--app-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            color: var(--gold);
+            font-weight: bold;
+            transition: opacity 0.5s;
+        }
     </style>
 </head>
 <body>
@@ -186,7 +240,9 @@
 
     <nav class="category-nav" id="category-nav"></nav>
 
-    <main class="content" id="content-area"></main>
+    <main class="content" id="content-area">
+        <div id="loading" class="loading-overlay">Sincronizando resultados ao vivo...</div>
+    </main>
 </div>
 
 <script>
@@ -220,14 +276,61 @@
 
         let state = {
             currentIndex: 0,
-            bets: JSON.parse(localStorage.getItem('oscar2026_v4')) || {}
+            bets: JSON.parse(localStorage.getItem('oscar2026_v4')) || {},
+            winners: {}
         };
 
         const contentArea = document.getElementById('content-area');
         const navBar = document.getElementById('category-nav');
         const progressText = document.getElementById('progress-text');
 
-        function init() {
+        // Função para buscar os vencedores ao vivo via TSV
+        async function fetchLiveWinners() {
+            const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTMErYQWhRlSidpdmAq_hMPsDbojVlJBKFt-vpC7njOYBSiXNuIAtpI78768Tb9Bca5ChnQblzFc5a1/pub?gid=0&single=true&output=tsv";
+            try {
+                const response = await fetch(url);
+                const text = await response.text();
+                
+                const rows = text.split('\n').map(r => r.split('\t').map(c => c.trim()));
+                
+                rows.forEach(row => {
+                    if (row.length >= 2) {
+                        const col0 = row[0].toLowerCase(); // Possível categoria
+                        const col1 = row[1]; // Possível vencedor
+                        
+                        if (col1) {
+                            // Tenta casar o nome ou id da categoria
+                            let matchedCat = categorias.find(c => 
+                                c.title.toLowerCase() === col0 || 
+                                c.id.toLowerCase() === col0 ||
+                                col0.includes(c.title.toLowerCase())
+                            );
+                            
+                            if (matchedCat) {
+                                state.winners[matchedCat.id] = col1;
+                            } else {
+                                // Fallback: verifica se o texto na coluna 1 bate perfeitamente com algum indicado
+                                for (let cat of categorias) {
+                                    if (cat.nominees.some(n => n.toLowerCase() === col1.toLowerCase() || n.toLowerCase().includes(col1.toLowerCase()))) {
+                                        state.winners[cat.id] = col1;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.warn("Não foi possível carregar os resultados da planilha. Iniciando modo offline.", error);
+            }
+        }
+
+        async function init() {
+            await fetchLiveWinners();
+            
+            const loading = document.getElementById('loading');
+            if(loading) loading.style.display = 'none';
+
             renderNav();
             renderCategory();
             setupDragScroll();
@@ -236,15 +339,56 @@
         function renderCategory() {
             const cat = categorias[state.currentIndex];
             const allDone = Object.keys(state.bets).length === categorias.length;
+            const categoryWinnerRaw = state.winners[cat.id];
 
             let html = `<div class="category-title">${cat.title}</div>`;
             
-            cat.nominees.forEach(nominee => {
+            let displayNominees = [...cat.nominees];
+            let matchedWinner = null;
+
+            // Se a categoria tem vencedor, isola e joga ele pro topo
+            if (categoryWinnerRaw) {
+                matchedWinner = displayNominees.find(n => 
+                    n.toLowerCase().includes(categoryWinnerRaw.toLowerCase()) || 
+                    categoryWinnerRaw.toLowerCase().includes(n.toLowerCase())
+                );
+                
+                if (matchedWinner) {
+                    displayNominees = displayNominees.filter(n => n !== matchedWinner);
+                    displayNominees.unshift(matchedWinner);
+                } else {
+                    // Se estiver escrito de forma muito diferente, injeta o texto exato da planilha no topo
+                    matchedWinner = categoryWinnerRaw;
+                    displayNominees.unshift(matchedWinner);
+                }
+            }
+            
+            displayNominees.forEach(nominee => {
+                const isWinner = categoryWinnerRaw && (nominee === matchedWinner);
                 const isSelected = state.bets[cat.id] === nominee;
+                const isDisabled = !!categoryWinnerRaw;
+                
+                let classes = ['nominee-card'];
+                
+                if (isWinner) classes.push('winner');
+                if (isSelected && !isWinner && categoryWinnerRaw) classes.push('wrong-bet'); // Errou a aposta
+                if (isSelected && isWinner) classes.push('correct-bet'); // Acertou a aposta
+                if (!isWinner && isSelected && !categoryWinnerRaw) classes.push('selected');
+                if (isDisabled && !isWinner) classes.push('disabled');
+
+                // Trava o clique se já houver um vencedor na categoria
+                const onClickAction = isDisabled ? '' : `onclick="app.makeBet('${cat.id}', '${nominee.replace(/'/g, "\\'")}')"`;
+                
+                let iconHtml = `<div class="radio-circle"></div>`;
+                if (isWinner) {
+                    iconHtml = `<div class="winner-icon">🏆</div>`;
+                } else if (isSelected && categoryWinnerRaw) {
+                    iconHtml = `<div class="radio-circle error-circle">❌</div>`;
+                }
+
                 html += `
-                    <button class="nominee-card ${isSelected ? 'selected' : ''}" 
-                            onclick="app.makeBet('${cat.id}', '${nominee.replace(/'/g, "\\'")}')">
-                        <div class="radio-circle"></div>
+                    <button class="${classes.join(' ')}" ${onClickAction}>
+                        ${iconHtml}
                         <span>${nominee}</span>
                     </button>
                 `;
@@ -261,7 +405,6 @@
 
         function renderNav() {
             navBar.innerHTML = categorias.map((cat, i) => {
-                // Tenta usar um nome curto para o menu superior baseando-se no ID
                 const shortName = cat.id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                 return `
                 <button class="nav-item" onclick="app.goTo(${i})" id="nav-${i}">
@@ -277,7 +420,8 @@
 
             document.querySelectorAll('.nav-item').forEach((el, i) => {
                 el.classList.toggle('active', i === state.currentIndex);
-                el.classList.toggle('completed', !!state.bets[categorias[i].id]);
+                // Marca como completado tanto se apostou, quanto se já há um vencedor definitivo (bloqueando a necessidade de aposta)
+                el.classList.toggle('completed', !!state.bets[categorias[i].id] || !!state.winners[categorias[i].id]);
             });
 
             const activeNav = document.getElementById(`nav-${state.currentIndex}`);
@@ -292,7 +436,6 @@
         window.app = {
             makeBet: (catId, nominee) => {
                 state.bets[catId] = nominee;
-                // Alterei a chave do localStorage para evitar conflito com as versões anteriores do seu código
                 localStorage.setItem('oscar2026_v4', JSON.stringify(state.bets));
                 renderCategory();
                 
@@ -308,16 +451,22 @@
                 renderCategory();
             },
             exportBets: () => {
-    let text = "🏆 *MEUS PALPITES OSCAR 2026* 🏆\n\n";
-    categorias.forEach(c => {
-        if(state.bets[c.id]) text += `*${c.title}:* ${state.bets[c.id]}\n`;
-    });
-    
-    // Adiciona o convite e o link no final da mensagem
-    text += "\n🎬 Faça suas apostas também em:\nhttps://harrybour43.github.io/ooscarvaipara/";
-    
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-}
+                let text = "🏆 *MEUS PALPITES OSCAR 2026* 🏆\n\n";
+                categorias.forEach(c => {
+                    if(state.bets[c.id]) {
+                        // Opcional: Mostra se acertou na exportação caso já tenha vencedor
+                        let mark = "";
+                        if (state.winners[c.id]) {
+                            const won = state.bets[c.id].toLowerCase().includes(state.winners[c.id].toLowerCase()) || state.winners[c.id].toLowerCase().includes(state.bets[c.id].toLowerCase());
+                            mark = won ? " ✅" : " ❌";
+                        }
+                        text += `*${c.title}:* ${state.bets[c.id]}${mark}\n`;
+                    }
+                });
+                
+                text += "\n🎬 Faça suas apostas também em:\nhttps://harrybour43.github.io/ooscarvaipara/";
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+            }
         };
 
         function setupDragScroll() {
