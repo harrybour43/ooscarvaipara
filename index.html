@@ -308,12 +308,16 @@
                 renderCategory();
             },
             exportBets: () => {
-                let text = "🏆 *MEUS PALPITES OSCAR 2026* 🏆\n\n";
-                categorias.forEach(c => {
-                    if(state.bets[c.id]) text += `*${c.title}:* ${state.bets[c.id]}\n`;
-                });
-                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-            }
+    let text = "🏆 *MEUS PALPITES OSCAR 2026* 🏆\n\n";
+    categorias.forEach(c => {
+        if(state.bets[c.id]) text += `*${c.title}:* ${state.bets[c.id]}\n`;
+    });
+    
+    // Adiciona o convite e o link no final da mensagem
+    text += "\n🎬 Faça suas apostas também em:\nhttps://harrybour43.github.io/ooscarvaipara/";
+    
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+}
         };
 
         function setupDragScroll() {
