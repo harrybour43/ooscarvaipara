@@ -28,7 +28,7 @@
             display: flex;
             justify-content: center;
             height: 100vh;
-            overflow: hidden; /* Mantém a aplicação fixa na tela */
+            overflow: hidden;
         }
 
         .app-container {
@@ -41,7 +41,6 @@
             box-shadow: 0 0 30px rgba(0,0,0,0.7);
         }
 
-        /* HEADER FIXO NO TOPO */
         header {
             background-color: #000;
             padding: 20px 20px 10px;
@@ -64,7 +63,6 @@
             text-transform: uppercase;
         }
 
-        /* MENU DE CATEGORIAS (Logo abaixo da linha amarela) */
         .category-nav {
             background-color: #000;
             display: flex;
@@ -73,13 +71,13 @@
             border-bottom: 1px solid #333;
             scrollbar-width: none;
             cursor: grab;
-            flex-shrink: 0; /* Impede que o menu mude de tamanho */
+            flex-shrink: 0;
         }
 
         .category-nav::-webkit-scrollbar { display: none; }
 
         .nav-item {
-            min-width: 70px;
+            min-width: 75px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -89,6 +87,7 @@
             opacity: 0.4;
             transition: 0.2s;
             color: var(--text-main);
+            padding: 0 5px;
         }
 
         .nav-item.active { opacity: 1; color: var(--gold); transform: scale(1.1); }
@@ -107,14 +106,12 @@
             display: flex; align-items: center; justify-content: center;
             font-weight: bold;
         }
-        .nav-item span { font-size: 0.55rem; margin-top: 4px; white-space: nowrap; }
+        .nav-item span { font-size: 0.55rem; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
-        /* ÁREA DE CONTEÚDO ROLÁVEL */
         .content {
             flex: 1;
             overflow-y: auto;
             padding: 20px;
-            /* Respeita a área de gestos do iPhone/Android no final da lista */
             padding-bottom: calc(40px + var(--safe-area-bottom));
         }
 
@@ -151,6 +148,7 @@
             border: 2px solid var(--text-muted);
             margin-right: 15px;
             position: relative;
+            flex-shrink: 0;
         }
 
         .selected .radio-circle { border-color: var(--gold); }
@@ -193,22 +191,36 @@
 
 <script>
     (function() {
-        // Dados das Categorias (Resumido para o exemplo, adicione as demais conforme sua lista inicial)
         const categorias = [
             { id: "filme", title: "Melhor Filme", icon: "🎬", nominees: ["Bugonia", "F1", "Frankenstein", "Hamnet", "Marty Supreme", "Uma Batalha Após A Outra", "O Agente Secreto", "Valor Sentimental", "Pecadores", "Sonhos de Trem"] },
-            { id: "direcao", title: "Melhor Direção", icon: "🎥", nominees: ["Chloé Zhao", "Josh Safdie", "Paul Thomas Anderson", "Joachim Trier", "Ryan Coogler"] },
-            { id: "ator", title: "Melhor Ator", icon: "👨", nominees: ["Timothée Chalamet", "Leonardo DiCaprio", "Ethan Hawke", "Michael B. Jordan", "Wagner Moura"] },
-            { id: "atriz", title: "Melhor Atriz", icon: "👩", nominees: ["Jessie Buckley", "Rose Byrne", "Kate Hudson", "Renat Reinsve", "Emma Stone"] },
-            { id: "ator_coad", title: "Ator Coadjuvante", icon: "🎭", nominees: ["Benicio del Toro", "Jacob Elordi", "Delroy Lindo", "Sean Penn", "Stellan Skarsgård"] },
-            { id: "atriz_coad", title: "Atriz Coadjuvante", icon: "💃", nominees: ["Elle Fanning", "Inga Ibsdotter Lilleaas", "Amy Madigan", "Wunmi Mosaku", "Teyana Taylor"] },
+            { id: "direcao", title: "Melhor Direção", icon: "🎥", nominees: ["Chloé Zhao (Hamnet)", "Josh Safdie (Marty Supreme)", "Paul Thomas Anderson (Uma Batalha Após A Outra)", "Joachim Trier (Valor Sentimental)", "Ryan Coogler (Pecadores)"] },
+            { id: "ator", title: "Melhor Ator", icon: "👨", nominees: ["Timothée Chalamet (Marty Supreme)", "Leonardo DiCaprio (Uma Batalha Após A Outra)", "Ethan Hawke (Blue Moon)", "Michael B. Jordan (Pecadores)", "Wagner Moura (O Agente Secreto)"] },
+            { id: "atriz", title: "Melhor Atriz", icon: "👩", nominees: ["Jessie Buckley (Hamnet)", "Rose Byrne (Se Eu Tivesse Pernas, Eu Te Chutaria)", "Kate Hudson (Song Sung Blue)", "Renat Reinsve (Valor Sentimental)", "Emma Stone (Bugonia)"] },
+            { id: "ator_coad", title: "Ator Coadjuvante", icon: "🎭", nominees: ["Benicio del Toro (Uma Batalha Após A Outra)", "Jacob Elordi (Frankenstein)", "Delroy Lindo (Pecadores)", "Sean Penn (Uma Batalha Após A Outra)", "Stellan Skarsgård (Valor Sentimental)"] },
+            { id: "atriz_coad", title: "Atriz Coadjuvante", icon: "💃", nominees: ["Elle Fanning (Valor Sentimental)", "Inga Ibsdotter Lilleaas (Valor Sentimental)", "Amy Madigan (A Hora do Mal)", "Wunmi Mosaku (Pecadores)", "Teyana Taylor (Uma Batalha Após A Outra)"] },
             { id: "elenco", title: "Melhor Elenco", icon: "🤝", nominees: ["Hamnet", "Marty Supreme", "Uma Batalha Após a Outra", "O Agente Secreto", "Pecadores"] },
+            { id: "roteiro_orig", title: "Roteiro Original", icon: "📝", nominees: ["Blue Moon", "Foi Apenas Um Acidente", "Marty Supreme", "Valor Sentimental", "Pecadores"] },
+            { id: "roteiro_adap", title: "Roteiro Adaptado", icon: "📚", nominees: ["Bugonia", "Frankestein", "Hamnet", "Uma Batalha Após A Outra", "Sonhos de Trem"] },
             { id: "animacao", title: "Animação", icon: "🐻", nominees: ["Arco", "Elio", "Guerreiras do K-pop", "A Pequena Amélie", "Zootopia 2"] },
-            { id: "internacional", title: "Filme Internacional", icon: "🌍", nominees: ["O Agente Secreto", "Foi Apenas Um Acidente", "Valor Sentimental", "Sirat", "The Voice of Hind Rajab"] }
+            { id: "internacional", title: "Filme Internacional", icon: "🌍", nominees: ["O Agente Secreto", "Foi Apenas Um Acidente", "Valor Sentimental", "Sirat", "The Voice of Hind Rajab"] },
+            { id: "doc_longa", title: "Documentário", icon: "🎞️", nominees: ["Alabama: Presos no Alabama", "Embaixo da Luz Neon", "Cutting Through Rocks", "Mr Nobody Against Putin", "A Vizinha Perfeita"] },
+            { id: "doc_curta", title: "Doc. Curta", icon: "⏱️", nominees: ["Quartos Vazios", "Armed Only with a Camera: The Life and Death of Brent Renaud", "Children No More: Were and are Gone", "O Diabo Não Tem Descanso", "Perfectly A Strangeness"] },
+            { id: "curta_live", title: "Curta Live Action", icon: "🎬", nominees: ["Butcher's Stain", "A Friend Of Dorothy", "Jane Austen's Period Drama", "The Singers", "Two People Exchanging Saliva"] },
+            { id: "curta_anim", title: "Curta Animação", icon: "✏️", nominees: ["Butterfly", "Forevergreen", "The Girl Who Cried Pearls", "Retirement Plan", "The Three Sisters"] },
+            { id: "trilha", title: "Trilha Sonora", icon: "🎵", nominees: ["Bugonia", "Frankestein", "Hamnet", "Uma Batalha Após A Outra", "Pecadores"] },
+            { id: "cancao", title: "Canção Original", icon: "🎤", nominees: ["Dear Me (Diane Warren: Relentless)", "Golden (Guerreiras do K-pop)", "I Lied To You (Pecadores)", "Sweet Dreams Of Joy (Viva Verdi!)", "Sonhos de Trem (Sonhos de Trem)"] },
+            { id: "som", title: "Melhor Som", icon: "🔊", nominees: ["F1", "Frankenstein", "Uma Batalha Após A Outra", "Pecadores", "Sirāt"] },
+            { id: "fotografia", title: "Fotografia", icon: "📸", nominees: ["Frankenstein", "Marty Supreme", "Uma Batalha Após A Outra", "Pecadores", "Sonhos de Trem"] },
+            { id: "design", title: "Design de Produção", icon: "🏰", nominees: ["Frankenstein", "Hamnet", "Marty Supreme", "Uma Batalha Após A Outra", "Pecadores"] },
+            { id: "figurino", title: "Figurino", icon: "👗", nominees: ["Avatar: Fogo e Cinzas", "Frankenstein", "Hamnet", "Marty Supreme", "Pecadores"] },
+            { id: "maquiagem", title: "Cabelo e Maquiagem", icon: "💄", nominees: ["Frankenstein", "Kokuho", "Pecadores", "Coração de Lutador: The Smashing Machine", "A Meia-Irmã Feia"] },
+            { id: "montagem", title: "Montagem", icon: "✂️", nominees: ["F1", "Marty Supreme", "Uma Batalha Após A Outra", "Valor Sentimental", "Pecadores"] },
+            { id: "efeitos", title: "Efeitos Visuais", icon: "💥", nominees: ["Avatar: Fogo e Cinzas", "F1", "Jurassic World: Recomeço", "O Ônibus Perdido", "Pecadores"] }
         ];
 
         let state = {
             currentIndex: 0,
-            bets: JSON.parse(localStorage.getItem('oscar2026_v3')) || {}
+            bets: JSON.parse(localStorage.getItem('oscar2026_v4')) || {}
         };
 
         const contentArea = document.getElementById('content-area');
@@ -238,22 +250,25 @@
                 `;
             });
 
-            if (allDone) {
+            if (allDone && state.currentIndex === categorias.length - 1) {
                 html += `<button class="btn-finish" onclick="app.exportBets()">📤 Compartilhar Palpites</button>`;
             }
 
             contentArea.innerHTML = html;
-            contentArea.scrollTop = 0; // Volta ao topo ao mudar categoria
+            contentArea.scrollTop = 0; 
             updateUI();
         }
 
         function renderNav() {
-            navBar.innerHTML = categorias.map((cat, i) => `
+            navBar.innerHTML = categorias.map((cat, i) => {
+                // Tenta usar um nome curto para o menu superior baseando-se no ID
+                const shortName = cat.id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                return `
                 <button class="nav-item" onclick="app.goTo(${i})" id="nav-${i}">
                     <div class="icon">${cat.icon}</div>
-                    <span>${cat.id.split('_')[0]}</span>
+                    <span>${shortName}</span>
                 </button>
-            `).join('');
+            `}).join('');
         }
 
         function updateUI() {
@@ -277,7 +292,8 @@
         window.app = {
             makeBet: (catId, nominee) => {
                 state.bets[catId] = nominee;
-                localStorage.setItem('oscar2026_v3', JSON.stringify(state.bets));
+                // Alterei a chave do localStorage para evitar conflito com as versões anteriores do seu código
+                localStorage.setItem('oscar2026_v4', JSON.stringify(state.bets));
                 renderCategory();
                 
                 setTimeout(() => {
